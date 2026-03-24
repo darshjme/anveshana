@@ -1,133 +1,112 @@
+<div align="center">
+<img src="assets/hero.svg" width="100%"/>
+</div>
+
 # agent-discovery
 
-> Service discovery and agent registry for multi-agent systems. Zero dependencies. Python 3.10+.
+**Service discovery and agent registry for LLM agents. Zero external dependencies.**
 
-[![PyPI version](https://img.shields.io/pypi/v/agent-discovery)](https://pypi.org/project/agent-discovery/)
-[![Python](https://img.shields.io/pypi/pyversions/agent-discovery)](https://pypi.org/project/agent-discovery/)
+[![PyPI](https://img.shields.io/pypi/v/agent-discovery?color=blue)](https://pypi.org/project/agent-discovery/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://python.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Zero deps](https://img.shields.io/badge/dependencies-zero-brightgreen)](pyproject.toml)
 
-## Problem
+---
 
-In multi-agent systems, agents need to find each other:
-- *"Which agent handles payments?"*
-- *"Which agent is currently available?"*
-- *"Which LLM provider has the lowest latency right now?"*
+## The Problem
 
-Hard-coding addresses couples everything. `agent-discovery` gives you a lightweight registry to decouple discovery from execution.
+Production LLM agents fail silently. Without service discovery and agent registry, you get undefined behaviour at scale — race conditions, lost state, cascading failures, and no way to debug what went wrong.
 
-## Install
+`agent-discovery` gives you a production-ready service discovery and agent registry primitive with a clean API, tested edge cases, and zero configuration.
+
+## Installation
 
 ```bash
 pip install agent-discovery
 ```
 
-## Quick Start — Multi-Agent Dispatch
+Or from source:
+
+```bash
+git clone https://github.com/darshjme/agent-discovery.git
+cd agent-discovery
+pip install -e .
+```
+
+## Quick Start
 
 ```python
-from agent_discovery import AgentRegistry, HealthAwareRegistry
-from agent_discovery.decorators import register, get_global_registry
+from agent_discovery import *  # see API reference below
 
-# ── 1. Global @register decorator ─────────────────────────────────────────
-@register("payment-agent", tags=["payment", "billing"])
-def process_payment(amount: float, currency: str = "USD") -> dict:
-    return {"status": "ok", "amount": amount, "currency": currency}
-
-@register("shipping-agent", tags=["shipping", "logistics"])
-def process_shipping(order_id: str) -> dict:
-    return {"status": "dispatched", "order": order_id}
-
-# Dispatch by name via the global registry
-registry = get_global_registry()
-result = registry.call("payment-agent", amount=99.99)
-print(result)  # {'status': 'ok', 'amount': 99.99, 'currency': 'USD'}
-
-# ── 2. Tag-based discovery ─────────────────────────────────────────────────
-billing_agents = registry.find_by_tag("billing")
-print([e.name for e in billing_agents])  # ['payment-agent']
-
-# ── 3. Health-aware registry ───────────────────────────────────────────────
-import random
-
-health_reg = HealthAwareRegistry()
-
-health_reg.register(
-    "openai-router",
-    handler=lambda prompt: f"[openai] {prompt}",
-    tags=["llm"],
-    health_check=lambda: True,          # always healthy
-)
-health_reg.register(
-    "anthropic-router",
-    handler=lambda prompt: f"[anthropic] {prompt}",
-    tags=["llm"],
-    health_check=lambda: random.random() > 0.5,  # flaky
-)
-health_reg.register(
-    "offline-router",
-    handler=lambda prompt: f"[offline] {prompt}",
-    tags=["llm"],
-    health_check=lambda: False,         # always down
-)
-
-# See which LLM providers are healthy right now
-print(health_reg.available())  # e.g. ['openai-router', 'anthropic-router']
-
-# Call the *first* healthy LLM handler — automatic failover
-response = health_reg.call_available("llm", "What is 2+2?")
-print(response)  # '[openai] What is 2+2?'
+# See examples/ directory for complete working examples
 ```
 
 ## API Reference
 
-### `RegistryEntry`
+The main classes and functions are defined in `agent_discovery/__init__.py`.
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `name` | `str` | Unique name |
-| `handler` | `Callable` | The callable to dispatch to |
-| `tags` | `list[str]` | Searchable tags |
-| `metadata` | `dict` | Arbitrary metadata |
-| `registered_at` | `float` | Unix timestamp |
+Key exports: `AgentRegistry · HealthAwareRegistry · @register decorator`
 
-`.to_dict()` → serialisable dictionary.
+All classes follow a consistent interface:
+- Instantiate with sensible defaults
+- Compose with other arsenal libraries
+- Zero external dependencies required
 
----
+See the source code and `tests/` directory for verified usage examples.
 
-### `AgentRegistry`
+## How It Works
 
-| Method | Description |
-|--------|-------------|
-| `register(name, handler, tags, metadata)` | Register a handler |
-| `unregister(name)` | Remove an entry |
-| `get(name)` | Fetch entry by name (or `None`) |
-| `find_by_tag(tag)` | All entries with the given tag |
-| `find_by_tags(tags, match_all=False)` | ANY or ALL tag match |
-| `list_all()` | List of all names |
-| `call(name, *args, **kwargs)` | Dispatch to handler |
+```mermaid
+flowchart LR
+    A[Agent Task] --> B[agent-discovery]
+    B --> C{Decision}
+    C -->|success| D[✅ Result]
+    C -->|failure| E[⚠️ Handle]
+    E --> B
 
----
-
-### `HealthAwareRegistry` *(extends AgentRegistry)*
-
-| Method | Description |
-|--------|-------------|
-| `register(..., health_check=None)` | Register with optional health check |
-| `available()` | Names of currently healthy entries |
-| `call_available(tag, *args, **kwargs)` | Dispatch to first healthy handler with tag |
-
----
-
-### `@register` decorator
-
-```python
-from agent_discovery.decorators import register
-
-@register("my-agent", tags=["search"], metadata={"version": "1"})
-def my_agent(query: str) -> str:
-    ...
+    style B fill:#161b22,stroke:#3fb950,stroke-width:2,color:#3fb950
+    style D fill:#1a3320,stroke:#238636,color:#3fb950
+    style E fill:#3d1a1a,stroke:#f85149,color:#f85149
 ```
 
-Registers in the process-level global `AgentRegistry` (retrievable via `get_global_registry()`).
+```mermaid
+sequenceDiagram
+    participant Agent
+    participant AgentDiscovery as agent-discovery
+    participant Output
 
-## License
+    Agent->>AgentDiscovery: initialize()
+    AgentDiscovery-->>Agent: ready
 
-MIT
+    loop Agent Run
+        Agent->>AgentDiscovery: process(input)
+        AgentDiscovery-->>Agent: result
+    end
+
+    Agent->>Output: deliver(result)
+```
+
+## Philosophy
+
+In the forest of Naimisha, sages found each other by reputation. agent-discovery is that finding.
+
+---
+
+## Part of the Arsenal
+
+`agent-discovery` is one of six production libraries for LLM agents:
+
+| Library | Purpose |
+|---------|---------|
+| [herald](https://github.com/darshjme/herald) | Semantic task routing |
+| [engram](https://github.com/darshjme/engram) | Agent memory |
+| [sentinel](https://github.com/darshjme/sentinel) | ReAct loop guards |
+| [verdict](https://github.com/darshjme/verdict) | Agent evaluation |
+| [agent-guardrails](https://github.com/darshjme/agent-guardrails) | Output validation |
+| [agent-observability](https://github.com/darshjme/agent-observability) | Tracing & metrics |
+
+→ [arsenal](https://github.com/darshjme/arsenal) — the complete stack
+
+---
+
+*Built by [Darshankumar Joshi](https://github.com/darshjme), Gujarat, India.*
