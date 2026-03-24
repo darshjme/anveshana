@@ -4,20 +4,15 @@
 
 # agent-discovery
 
-**Service discovery and agent registry for LLM agents. Zero external dependencies.**
+**Service discovery and agent registry for multi-agent systems**
 
-[![PyPI](https://img.shields.io/pypi/v/agent-discovery?color=blue)](https://pypi.org/project/agent-discovery/)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://python.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Zero deps](https://img.shields.io/badge/dependencies-zero-brightgreen)](pyproject.toml)
+[![PyPI version](https://img.shields.io/pypi/v/agent-discovery?color=blue&style=flat-square)](https://pypi.org/project/agent-discovery/) [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square)](https://python.org) [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE) [![Tests](https://img.shields.io/badge/tests-passing-brightgreen?style=flat-square)](#)
 
 ---
 
 ## The Problem
 
-Production LLM agents fail silently. Without service discovery and agent registry, you get undefined behaviour at scale — race conditions, lost state, cascading failures, and no way to debug what went wrong.
-
-`agent-discovery` gives you a production-ready service discovery and agent registry primitive with a clean API, tested edge cases, and zero configuration.
+Without service discovery, agent endpoints are hardcoded strings that break on every deployment. Dynamic discovery handles rolling updates, blue-green switches, and node failures without a human updating config files at 3 AM.
 
 ## Installation
 
@@ -25,88 +20,102 @@ Production LLM agents fail silently. Without service discovery and agent registr
 pip install agent-discovery
 ```
 
-Or from source:
-
-```bash
-git clone https://github.com/darshjme/agent-discovery.git
-cd agent-discovery
-pip install -e .
-```
-
 ## Quick Start
 
 ```python
-from agent_discovery import *  # see API reference below
+from agent_discovery import HealthAwareEntry, HealthAwareRegistry, RegistryEntry
 
-# See examples/ directory for complete working examples
+# Initialise
+instance = HealthAwareEntry(name="my_agent")
+
+# Use
+# see API reference below
+print(result)
 ```
 
 ## API Reference
 
-The main classes and functions are defined in `agent_discovery/__init__.py`.
+### `HealthAwareEntry`
 
-Key exports: `AgentRegistry · HealthAwareRegistry · @register decorator`
+```python
+class HealthAwareEntry(RegistryEntry):
+    """RegistryEntry that also stores an optional health-check callable."""
+    def __init__(self, *args: Any, health_check: Callable[[], bool] | None = None, **kwargs: Any) -> None:
+    def is_healthy(self) -> bool:
+        """Return True when no health_check is supplied, or when it returns True."""
+    def to_dict(self) -> dict:
+```
 
-All classes follow a consistent interface:
-- Instantiate with sensible defaults
-- Compose with other arsenal libraries
-- Zero external dependencies required
+### `HealthAwareRegistry`
 
-See the source code and `tests/` directory for verified usage examples.
+```python
+class HealthAwareRegistry(AgentRegistry):
+    """Agent registry with integrated health-check support."""
+    def register(  # type: ignore[override]
+    def available(self) -> list[str]:
+        """Return names of all currently *healthy* entries."""
+```
+
+### `RegistryEntry`
+
+```python
+class RegistryEntry:
+    """Immutable-ish record stored in the registry."""
+    def __init__(
+    def to_dict(self) -> dict:
+    def __repr__(self) -> str:  # pragma: no cover
+```
+
+### `AgentRegistry`
+
+```python
+class AgentRegistry:
+    """Central agent/service registry."""
+    def __init__(self) -> None:
+    def register(
+    def unregister(self, name: str) -> None:
+        """Remove a previously registered entry.  Raises KeyError if not found."""
+```
+
 
 ## How It Works
 
+### Flow
+
 ```mermaid
 flowchart LR
-    A[Agent Task] --> B[agent-discovery]
-    B --> C{Decision}
-    C -->|success| D[✅ Result]
-    C -->|failure| E[⚠️ Handle]
-    E --> B
-
-    style B fill:#161b22,stroke:#3fb950,stroke-width:2,color:#3fb950
-    style D fill:#1a3320,stroke:#238636,color:#3fb950
-    style E fill:#3d1a1a,stroke:#f85149,color:#f85149
+    A[User Code] -->|create| B[HealthAwareEntry]
+    B -->|configure| C[HealthAwareRegistry]
+    C -->|execute| D{Success?}
+    D -->|yes| E[Return Result]
+    D -->|no| F[Error Handler]
+    F --> G[Fallback / Retry]
+    G --> C
 ```
+
+### Sequence
 
 ```mermaid
 sequenceDiagram
-    participant Agent
-    participant AgentDiscovery as agent-discovery
-    participant Output
+    participant App
+    participant HealthAwareEntry
+    participant HealthAwareRegistry
 
-    Agent->>AgentDiscovery: initialize()
-    AgentDiscovery-->>Agent: ready
-
-    loop Agent Run
-        Agent->>AgentDiscovery: process(input)
-        AgentDiscovery-->>Agent: result
-    end
-
-    Agent->>Output: deliver(result)
+    App->>+HealthAwareEntry: initialise()
+    HealthAwareEntry->>+HealthAwareRegistry: configure()
+    HealthAwareRegistry-->>-HealthAwareEntry: ready
+    App->>+HealthAwareEntry: run(context)
+    HealthAwareEntry->>+HealthAwareRegistry: execute(context)
+    HealthAwareRegistry-->>-HealthAwareEntry: result
+    HealthAwareEntry-->>-App: WorkflowResult
 ```
 
 ## Philosophy
 
-In the forest of Naimisha, sages found each other by reputation. agent-discovery is that finding.
+> In the *Vedas*, *soma* was discovered through ritual search; service discovery is the ceremony that finds what is needed.
 
 ---
 
-## Part of the Arsenal
-
-`agent-discovery` is one of six production libraries for LLM agents:
-
-| Library | Purpose |
-|---------|---------|
-| [herald](https://github.com/darshjme/herald) | Semantic task routing |
-| [engram](https://github.com/darshjme/engram) | Agent memory |
-| [sentinel](https://github.com/darshjme/sentinel) | ReAct loop guards |
-| [verdict](https://github.com/darshjme/verdict) | Agent evaluation |
-| [agent-guardrails](https://github.com/darshjme/agent-guardrails) | Output validation |
-| [agent-observability](https://github.com/darshjme/agent-observability) | Tracing & metrics |
-
-→ [arsenal](https://github.com/darshjme/arsenal) — the complete stack
-
----
+*Part of the [arsenal](https://github.com/darshjme/arsenal) — production stack for LLM agents.*
 
 *Built by [Darshankumar Joshi](https://github.com/darshjme), Gujarat, India.*
