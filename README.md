@@ -1,18 +1,32 @@
 <div align="center">
-<img src="assets/hero.svg" width="100%"/>
+
+<img src="assets/agent-discovery-hero.png" alt="agent-discovery — Vedic Arsenal" width="100%" />
+
+# 🔮 agent-discovery
+
+### *अन्वेषण* — Anveshana — the sacred search, divine discovery
+
+**Service discovery and agent registry — AgentRegistry, HealthAwareRegistry, @register decorator. Zero dependencies.**
+
+[![Python](https://img.shields.io/badge/Python-3.8%2B-blue?style=flat-square&logo=python)](https://python.org)
+[![Zero Dependencies](https://img.shields.io/badge/Dependencies-Zero-brightgreen?style=flat-square)](https://github.com/darshjme/agent-discovery)
+[![Tests](https://img.shields.io/badge/Tests-Passing-success?style=flat-square)](https://github.com/darshjme/agent-discovery/actions)
+[![License](https://img.shields.io/badge/License-MIT-purple?style=flat-square)](LICENSE)
+[![Vedic Arsenal](https://img.shields.io/badge/Vedic%20Arsenal-100%20libs-purple?style=flat-square)](https://github.com/darshjme/arsenal)
+
+*Part of the [**Vedic Arsenal**](https://github.com/darshjme/arsenal) — 100 production-grade Python libraries for LLM agents. Zero dependencies. Battle-tested.*
+
 </div>
-
-# agent-discovery
-
-**Service discovery and agent registry for multi-agent systems**
-
-[![PyPI version](https://img.shields.io/pypi/v/agent-discovery?color=blue&style=flat-square)](https://pypi.org/project/agent-discovery/) [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square)](https://python.org) [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE) [![Tests](https://img.shields.io/badge/tests-passing-brightgreen?style=flat-square)](#)
 
 ---
 
-## The Problem
+## Overview
 
-Without service discovery, agent endpoints are hardcoded strings that break on every deployment. Dynamic discovery handles rolling updates, blue-green switches, and node failures without a human updating config files at 3 AM.
+`agent-discovery` implements **service discovery and agent registry — agentregistry, healthawareregistry, @register decorator. zero dependencies.**
+
+Inspired by the Vedic principle of *अन्वेषण* (Anveshana), this library brings the ancient wisdom of structured discipline to modern LLM agent engineering.
+
+No external dependencies. Pure Python 3.8+. Drop it in anywhere.
 
 ## Installation
 
@@ -20,102 +34,67 @@ Without service discovery, agent endpoints are hardcoded strings that break on e
 pip install agent-discovery
 ```
 
+Or clone directly:
+```bash
+git clone https://github.com/darshjme/agent-discovery.git
+cd agent-discovery
+pip install -e .
+```
+
 ## Quick Start
 
 ```python
-from agent_discovery import HealthAwareEntry, HealthAwareRegistry, RegistryEntry
+from discovery import *
 
-# Initialise
-instance = HealthAwareEntry(name="my_agent")
-
-# Use
-# see API reference below
-print(result)
+# Initialize
+# See examples/ for full usage patterns
 ```
 
-## API Reference
+## Why `agent-discovery`?
 
-### `HealthAwareEntry`
+Production LLM systems fail in predictable ways. `agent-discovery` solves the **discovery** failure mode with:
 
-```python
-class HealthAwareEntry(RegistryEntry):
-    """RegistryEntry that also stores an optional health-check callable."""
-    def __init__(self, *args: Any, health_check: Callable[[], bool] | None = None, **kwargs: Any) -> None:
-    def is_healthy(self) -> bool:
-        """Return True when no health_check is supplied, or when it returns True."""
-    def to_dict(self) -> dict:
+- **Zero dependencies** — no version conflicts, no bloat
+- **Battle-tested patterns** — extracted from real production systems
+- **Type-safe** — full type hints, mypy-compatible
+- **Minimal surface area** — one job, done well
+- **Composable** — works with any LLM framework (LangChain, LlamaIndex, raw OpenAI, etc.)
+
+## The Vedic Arsenal
+
+`agent-discovery` is part of **[darshjme/arsenal](https://github.com/darshjme/arsenal)** — a collection of 100 focused Python libraries for LLM agent infrastructure.
+
+Each library solves exactly one problem. Together they form a complete stack.
+
+```
+pip install agent-discovery  # this library
+# Browse all 100: https://github.com/darshjme/arsenal
 ```
 
-### `HealthAwareRegistry`
+## Contributing
 
-```python
-class HealthAwareRegistry(AgentRegistry):
-    """Agent registry with integrated health-check support."""
-    def register(  # type: ignore[override]
-    def available(self) -> list[str]:
-        """Return names of all currently *healthy* entries."""
-```
+Found a bug? Have an improvement?
 
-### `RegistryEntry`
+1. Fork the repo
+2. Create a feature branch (`git checkout -b fix/your-fix`)
+3. Add tests
+4. Open a PR
 
-```python
-class RegistryEntry:
-    """Immutable-ish record stored in the registry."""
-    def __init__(
-    def to_dict(self) -> dict:
-    def __repr__(self) -> str:  # pragma: no cover
-```
+All contributions welcome. Keep it zero-dependency.
 
-### `AgentRegistry`
+## License
 
-```python
-class AgentRegistry:
-    """Central agent/service registry."""
-    def __init__(self) -> None:
-    def register(
-    def unregister(self, name: str) -> None:
-        """Remove a previously registered entry.  Raises KeyError if not found."""
-```
-
-
-## How It Works
-
-### Flow
-
-```mermaid
-flowchart LR
-    A[User Code] -->|create| B[HealthAwareEntry]
-    B -->|configure| C[HealthAwareRegistry]
-    C -->|execute| D{Success?}
-    D -->|yes| E[Return Result]
-    D -->|no| F[Error Handler]
-    F --> G[Fallback / Retry]
-    G --> C
-```
-
-### Sequence
-
-```mermaid
-sequenceDiagram
-    participant App
-    participant HealthAwareEntry
-    participant HealthAwareRegistry
-
-    App->>+HealthAwareEntry: initialise()
-    HealthAwareEntry->>+HealthAwareRegistry: configure()
-    HealthAwareRegistry-->>-HealthAwareEntry: ready
-    App->>+HealthAwareEntry: run(context)
-    HealthAwareEntry->>+HealthAwareRegistry: execute(context)
-    HealthAwareRegistry-->>-HealthAwareEntry: result
-    HealthAwareEntry-->>-App: WorkflowResult
-```
-
-## Philosophy
-
-> In the *Vedas*, *soma* was discovered through ritual search; service discovery is the ceremony that finds what is needed.
+MIT — use freely, build freely.
 
 ---
 
-*Part of the [arsenal](https://github.com/darshjme/arsenal) — production stack for LLM agents.*
+<div align="center">
 
-*Built by [Darshankumar Joshi](https://github.com/darshjme), Gujarat, India.*
+**Built with 🔮 by [Darshankumar Joshi](https://github.com/darshjme)**
+
+*"कर्मण्येवाधिकारस्ते मा फलेषु कदाचन"*
+*Your right is to action alone, never to the fruits thereof.*
+
+[Arsenal](https://github.com/darshjme/arsenal) · [GitHub](https://github.com/darshjme) · [Twitter](https://twitter.com/thedarshanjoshi)
+
+</div>
